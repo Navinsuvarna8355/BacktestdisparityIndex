@@ -39,4 +39,3 @@ def simulate_disparity_trades(df, buy_thresh=102, ce_thresh=98):
             })
             position = None
     return pd.DataFrame(trades)
-
