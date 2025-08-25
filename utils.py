@@ -18,7 +18,7 @@ def parse_option_chain(data):
     expiry_dates = data["records"]["expiryDates"]
     current_expiry = expiry_dates[0]
     ce_oi_total, pe_oi_total = 0, 0
-    strikes = []
+    rows = []
 
     for item in data["records"]["data"]:
         if item["expiryDate"] != current_expiry:
@@ -27,14 +27,14 @@ def parse_option_chain(data):
         ce = item.get("CE", {})
         pe = item.get("PE", {})
         ce_oi = ce.get("openInterest", 0)
-        ce_iv = ce.get("impliedVolatility", None)
         pe_oi = pe.get("openInterest", 0)
+        ce_iv = ce.get("impliedVolatility", None)
         pe_iv = pe.get("impliedVolatility", None)
 
         ce_oi_total += ce_oi
         pe_oi_total += pe_oi
 
-        strikes.append({
+        rows.append({
             "Strike": strike,
             "CE_OI": ce_oi,
             "PE_OI": pe_oi,
@@ -44,10 +44,11 @@ def parse_option_chain(data):
         })
 
     pcr = round(pe_oi_total / ce_oi_total, 2) if ce_oi_total else None
-    return pd.DataFrame(strikes), pcr
+    return pd.DataFrame(rows), pcr
 
 def save_option_chain(df, symbol):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.makedirs("data", exist_ok=True)
     filename = f"data/{symbol}_option_chain_{timestamp}.csv"
     df.to_csv(filename, index=False)
     return filename
@@ -57,7 +58,7 @@ def get_latest_csv(symbol):
     files.sort(reverse=True)
     return os.path.join("data", files[0]) if files else None
 
-def simulate_disparity_trades(df, buy_thresh=102, sell_thresh=98):
+def simulate_disparity_trades(df, buy_thresh=102, ce_thresh=98):
     trades, position = [], None
     for i in range(1, len(df)):
         row = df.iloc[i]
@@ -68,18 +69,14 @@ def simulate_disparity_trades(df, buy_thresh=102, sell_thresh=98):
         signal, price = None, None
         if disparity > buy_thresh:
             signal, price = "Buy PE", row["PE_IV"]
-        elif disparity < sell_thresh:
-            signal, price = "Sell PE", row["PE_IV"]
-        elif disparity < (200 - buy_thresh):
+        elif disparity < ce_thresh:
             signal, price = "Buy CE", row["CE_IV"]
-        elif disparity > (200 - sell_thresh):
-            signal, price = "Sell CE", row["CE_IV"]
 
         if signal and not position:
             position = {"Type": signal, "Entry_Time": row["Timestamp_IST"], "Entry_Price": price}
-        elif position and signal and signal.split()[0] != position["Type"].split()[0]:
+        elif position and signal and signal.split()[1] == position["Type"].split()[1]:
             exit_price = price
-            pnl = (exit_price - position["Entry_Price"]) if "Buy" in position["Type"] else (position["Entry_Price"] - exit_price)
+            pnl = exit_price - position["Entry_Price"]
             trades.append({
                 "Type": position["Type"],
                 "Entry": position["Entry_Time"],
