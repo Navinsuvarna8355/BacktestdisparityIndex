@@ -1,38 +1,19 @@
 import streamlit as st
-from utils import (
-    load_data,
-    signal_engine,
-    backtest_trades,
-    monthly_pnl_summary,
-    daily_pnl_summary,
-    reasoning_panel
-)
+import pandas as pd
+from utils import fetch_option_chain, parse_option_chain
 
-st.set_page_config(page_title="5-Year Backtest — NIFTY & BANKNIFTY", layout="wide")
-st.title("📊 5-Year Strategy Backtest")
+st.set_page_config(page_title="Live Option Chain — NIFTY & BANKNIFTY", layout="wide")
+st.title("📡 Live Option Chain Dashboard")
+
 symbol = st.selectbox("Select Symbol", ["NIFTY", "BANKNIFTY"])
 
-df = load_data(symbol)
-df = signal_engine(df)
-trades = backtest_trades(df, symbol)
-
-st.subheader("📈 Signal Table")
-st.dataframe(df.tail(50), use_container_width=True)
-
-st.subheader("📘 Trade Log")
-st.dataframe(trades, use_container_width=True)
-st.download_button("Download Trade Log", trades.to_csv(index=False).encode("utf-8"), f"{symbol}_backtest_trades.csv", "text/csv")
-
-st.subheader("📆 Monthly PnL")
-monthly_df = monthly_pnl_summary(trades)
-st.dataframe(monthly_df, use_container_width=True)
-st.download_button("Download Monthly PnL", monthly_df.to_csv(index=False).encode("utf-8"), f"{symbol}_monthly_pnl.csv", "text/csv")
-
-st.subheader("📅 Daily PnL")
-daily_df = daily_pnl_summary(trades)
-st.dataframe(daily_df.tail(30), use_container_width=True)
-st.download_button("Download Daily PnL", daily_df.to_csv(index=False).encode("utf-8"), f"{symbol}_daily_pnl.csv", "text/csv")
-
-st.subheader("🧠 Reasoning Panel")
-st.json(reasoning_panel(df))
-
+st.subheader(f"🔍 Fetching Option Chain for {symbol}")
+try:
+    raw_data = fetch_option_chain(symbol)
+    strikes, pcr = parse_option_chain(raw_data)
+    df = pd.DataFrame(strikes)
+    st.metric(label="PCR (Put/Call Ratio)", value=pcr)
+    st.dataframe(df, use_container_width=True)
+    st.download_button("Download Option Chain", df.to_csv(index=False), f"{symbol}_option_chain.csv", "text/csv")
+except Exception as e:
+    st.error(f"Failed to fetch option chain: {e}")
