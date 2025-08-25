@@ -3,7 +3,7 @@ import pandas as pd
 from utils import fetch_and_save_chain, get_latest_csv
 from strategy import simulate_disparity_trades
 
-st.set_page_config(page_title="Disparity Dashboard", layout="wide")
+st.set_page_config(page_title="Disparity Strategy", layout="wide")
 st.title("📈 Buy-Only Disparity Strategy")
 
 symbol = st.selectbox("Symbol", ["BANKNIFTY", "NIFTY"])
