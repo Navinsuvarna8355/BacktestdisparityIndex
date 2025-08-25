@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from utils import (
     fetch_option_chain,
     parse_option_chain,
@@ -8,8 +9,8 @@ from utils import (
     simulate_disparity_trades
 )
 
-st.set_page_config(page_title="Auto Backtest Dashboard", layout="wide")
-st.title("📈 Auto Option Chain + Disparity Backtest")
+st.set_page_config(page_title="Buy-Only Disparity Backtest", layout="wide")
+st.title("📈 Auto Option Chain + Buy-Only Disparity Backtest")
 
 symbol = st.selectbox("Select Symbol", ["BANKNIFTY", "NIFTY"])
 st.subheader(f"🔄 Fetching & Saving Option Chain for {symbol}")
@@ -17,16 +18,19 @@ st.subheader(f"🔄 Fetching & Saving Option Chain for {symbol}")
 try:
     raw_data = fetch_option_chain(symbol)
     df_chain, pcr = parse_option_chain(raw_data)
+
     st.metric(label="Put/Call Ratio (PCR)", value=pcr)
     st.dataframe(df_chain, use_container_width=True)
 
     saved_path = save_option_chain(df_chain, symbol)
     st.success(f"✅ Option chain saved to: {saved_path}")
+
+    st.download_button("📥 Download Option Chain", df_chain.to_csv(index=False), f"{symbol}_option_chain.csv", "text/csv")
 except Exception as e:
     st.error(f"⚠️ Error fetching data: {e}")
 
 # Backtest Panel
-st.subheader("📂 Auto Backtest Disparity Strategy")
+st.subheader("📂 Auto Backtest — Buy CE & Buy PE Only")
 latest_file = get_latest_csv(symbol)
 
 if latest_file:
