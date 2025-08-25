@@ -1,22 +1,23 @@
-import streamlit as st
-import pandas as pd
-from utils import fetch_option_chain, parse_option_chain
+from utils import load_saved_option_chain, simulate_disparity_trades
 
-st.set_page_config(page_title="Live Option Chain — BANKNIFTY", layout="wide")
-st.title("📊 BANKNIFTY Option Chain Dashboard")
+st.subheader("📂 Backtest Disparity Strategy")
+uploaded_file = st.file_uploader("Upload Saved Option Chain CSV", type="csv")
 
-symbol = st.selectbox("Select Symbol", ["BANKNIFTY", "NIFTY"])
+if uploaded_file:
+    df = load_saved_option_chain(uploaded_file)
+    trades = simulate_disparity_trades(df)
 
-st.subheader(f"🔄 Fetching Option Chain for {symbol}")
-try:
-    raw_data = fetch_option_chain(symbol)
-    strikes, pcr = parse_option_chain(raw_data)
-    df = pd.DataFrame(strikes)
+    st.subheader("🧾 Trade Log")
+    st.dataframe(trades)
 
-    st.metric(label="Put/Call Ratio (PCR)", value=pcr)
-    st.dataframe(df, use_container_width=True)
+    # Daily PnL
+    trades["Date"] = trades["Exit"].dt.date
+    daily_pnl = trades.groupby("Date")["PnL"].sum().reset_index()
+    st.subheader("📅 Daily PnL")
+    st.dataframe(daily_pnl)
 
-    csv = df.to_csv(index=False)
-    st.download_button("📥 Download Option Chain", csv, f"{symbol}_option_chain.csv", "text/csv")
-except Exception as e:
-    st.error(f"⚠️ Error fetching data: {e}")
+    # Monthly PnL
+    trades["Month"] = trades["Exit"].dt.to_period("M")
+    monthly_pnl = trades.groupby("Month")["PnL"].sum().reset_index()
+    st.subheader("🗓️ Monthly PnL")
+    st.dataframe(monthly_pnl)
